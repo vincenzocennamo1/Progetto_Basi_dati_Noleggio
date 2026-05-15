@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% load rental_extras %}
+
+{% block content %}
+<section class="section-head">
+    <h1>Gestione prenotazioni</h1>
+</section>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>ID</th><th>Cliente</th><th>Veicolo</th><th>Date</th><th>Ritiro</th><th>Costo</th><th>Stato</th><th>Azioni</th></tr></thead>
+        <tbody>
+            {% for row in reservations %}
+                <tr>
+                    <td>#{{ row.id_prenotazione }}</td>
+                    <td>{{ row.cliente.nome }} {{ row.cliente.cognome }}<br><small>{{ row.cliente.mail }}</small></td>
+                    <td>{{ row.veicolo.marca }} {{ row.veicolo.modello }}</td>
+                    <td>{{ row.data_inizio }} - {{ row.data_fine }}</td>
+                    <td>{{ row.ritiro.tipo }}<br><small>{{ row.ritiro.indirizzo }}</small></td>
+                    <td>{{ row.costo_previsto|euro }}</td>
+                    <td><span class="status">{{ row.stato }}</span></td>
+                    <td>
+                        <form class="inline" method="post" action="/admin/prenotazione/update/">
+                            {% csrf_token %}
+                            <input type="hidden" name="idPrenotazione" value="{{ row.id_prenotazione }}">
+                            <select name="stato">
+                                <option value="in_attesa" {% if row.stato == "in_attesa" %}selected{% endif %}>in_attesa</option>
+                                <option value="accettata" {% if row.stato == "accettata" %}selected{% endif %}>accettata</option>
+                                <option value="rifiutata" {% if row.stato == "rifiutata" %}selected{% endif %}>rifiutata</option>
+                                <option value="in_corso" {% if row.stato == "in_corso" %}selected{% endif %}>in_corso</option>
+                                <option value="completata" {% if row.stato == "completata" %}selected{% endif %}>completata</option>
+                            </select>
+                            <input name="cauzione_richiesta" type="number" step="0.01" value="{{ row.cauzione_richiesta }}">
+                            <button>Salva</button>
+                        </form>
+                        <a href="/admin/pagamenti/?idPrenotazione={{ row.id_prenotazione }}">Pagamenti</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="8" class="muted">Nessuna prenotazione registrata.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

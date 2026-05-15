@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% load rental_extras %}
+
+{% block content %}
+<section class="panel narrow">
+    <p class="eyebrow">{{ veicolo.tipo }}</p>
+    <h1>{{ veicolo.marca }} {{ veicolo.modello }}</h1>
+    <p>{{ veicolo.colore }} · {{ veicolo|specs }} · {{ veicolo.prezzo_giornaliero|euro }} al giorno</p>
+    <div class="notice">
+        Per noleggi di almeno 3 giorni viene richiesto un acconto pari al 35% del costo totale.
+        Per durate inferiori non viene richiesto acconto anticipato.
+    </div>
+    <form method="post" action="/prenota/" class="form">
+        {% csrf_token %}
+        <input type="hidden" name="idVeicolo" value="{{ veicolo.id_veicolo }}">
+        <label>Data inizio <input type="date" name="data_inizio" required></label>
+        <label>Data fine <input type="date" name="data_fine" required></label>
+        <label>Modalità di ritiro
+            <select name="tipo_ritiro">
+                <option value="sede">Ritiro in sede</option>
+                <option value="consegna">Consegna presso hotel/indirizzo</option>
+            </select>
+        </label>
+        <label>Indirizzo o hotel <input name="indirizzo" placeholder="Da compilare per la consegna"></label>
+        <label>Note <textarea name="note"></textarea></label>
+        <button>Invia prenotazione</button>
+    </form>
+</section>
+{% endblock %}

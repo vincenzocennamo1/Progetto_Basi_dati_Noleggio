@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+{% load rental_extras %}
+
+{% block content %}
+<section class="section-head">
+    <h1>Pagamenti prenotazione #{{ id }}</h1>
+    <a class="button secondary" href="/admin/prenotazioni/">Torna</a>
+</section>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Tipo</th><th>Importo</th><th>Stato</th><th>Data</th><th>Conferma</th></tr></thead>
+        <tbody>
+            {% for row in payments %}
+                <tr>
+                    <td>{{ row.tipo }}</td>
+                    <td>{{ row.importo|euro }}</td>
+                    <td>{{ row.stato }}</td>
+                    <td>{{ row.data_pagamento|default:"-" }}</td>
+                    <td>
+                        <form method="post" action="/admin/pagamento/update/">
+                            {% csrf_token %}
+                            <input type="hidden" name="idPagamento" value="{{ row.id_pagamento }}">
+                            <select name="stato">
+                                <option value="richiesto" {% if row.stato == "richiesto" %}selected{% endif %}>richiesto</option>
+                                <option value="pagato" {% if row.stato == "pagato" %}selected{% endif %}>pagato</option>
+                                <option value="rimborsato" {% if row.stato == "rimborsato" %}selected{% endif %}>rimborsato</option>
+                            </select>
+                            <button>Conferma</button>
+                        </form>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="muted">Nessun pagamento trovato.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+{% load rental_extras %}
+
+{% block content %}
+<section class="section-head">
+    <div>
+        <p class="eyebrow">Pannello operativo</p>
+        <h1>Dashboard admin</h1>
+    </div>
+</section>
+<section class="grid four">
+    <article class="card"><span>Prenotazioni in attesa</span><strong>{{ stats.attesa }}</strong></article>
+    <article class="card"><span>Veicoli</span><strong>{{ stats.veicoli }}</strong></article>
+    <article class="card"><span>Clienti</span><strong>{{ stats.clienti }}</strong></article>
+    <article class="card"><span>Pagamenti incassati</span><strong>{{ stats.incassi|euro }}</strong></article>
+</section>
+<section class="panel dashboard-calendar">
+    <div class="section-head">
+        <div>
+            <h2>Pagamenti accreditati</h2>
+            <p class="muted">Pagamenti registrati come incassati nelle prenotazioni.</p>
+        </div>
+    </div>
+    <div class="table-wrap compact">
+        <table>
+            <thead>
+                <tr><th>Prenotazione</th><th>Cliente</th><th>Veicolo</th><th>Tipo</th><th>Data</th><th>Importo</th></tr>
+            </thead>
+            <tbody>
+                {% for row in credited %}
+                    <tr>
+                        <td>#{{ row.idPrenotazione }}</td>
+                        <td>{{ row.nome }} {{ row.cognome }}</td>
+                        <td>{{ row.marca }} {{ row.modello }}</td>
+                        <td>{{ row.tipo }}</td>
+                        <td>{{ row.data_pagamento|default:"-" }}</td>
+                        <td>{{ row.importo|euro }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="6" class="muted">Nessun pagamento accreditato.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+<section class="panel dashboard-calendar">
+    <div class="section-head">
+        <div>
+            <h2>Rientri veicoli</h2>
+            <p class="muted">Seleziona una data per vedere i mezzi che devono rientrare e i relativi clienti.</p>
+        </div>
+        <form method="get" action="/admin/" class="filters">
+            <input type="date" name="rientro" value="{{ rientro }}" required>
+            <button>Cerca</button>
+        </form>
+    </div>
+    <div class="table-wrap compact">
+        <table>
+            <thead>
+                <tr><th>ID</th><th>Veicolo</th><th>Cliente</th><th>Periodo</th><th>Ritiro/consegna</th><th>Stato</th><th>Costo</th></tr>
+            </thead>
+            <tbody>
+                {% for row in returns %}
+                    <tr>
+                        <td>#{{ row.idPrenotazione }}</td>
+                        <td>{{ row.marca }} {{ row.modello }}<br><small>{{ row.tipo }} · targa {{ row.targa|default:"-" }}</small></td>
+                        <td>{{ row.nome }} {{ row.cognome }}<br><small>{{ row.mail }} · {{ row.telefono }}</small></td>
+                        <td>{{ row.data_inizio }} - {{ row.data_fine }}</td>
+                        <td>{{ row.tipo_ritiro }}<br><small>{{ row.indirizzo }}</small></td>
+                        <td><span class="status">{{ row.stato }}</span></td>
+                        <td>{{ row.costo_previsto|euro }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="7" class="muted">Nessun rientro previsto per questa data.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}

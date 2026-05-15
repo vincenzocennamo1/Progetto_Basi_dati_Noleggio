@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <p class="eyebrow">Area riservata</p>
+    <h1>{{ title }}</h1>
+    <form method="post" action="{{ action }}" class="form">
+        {% csrf_token %}
+        <label>Nome utente o email admin <input name="identificativo" required></label>
+        <label>Password <input type="password" name="password" required></label>
+        <button>Entra</button>
+    </form>
+    <div class="muted"><a href="/register/">Crea un account cliente</a></div>
+    <div class="login-notes">
+        <p>Utente demo: <strong>luca.bianchi</strong> / <strong>password</strong></p>
+        <p>Admin demo: <strong>admin@noleggio.it</strong> / <strong>admin123</strong></p>
+    </div>
+</section>
+{% endblock %}

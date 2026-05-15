@@ -1,0 +1,45 @@
+{% extends "layout.html" %}
+{% load rental_extras %}
+
+{% block content %}
+<section class="section-head">
+    <div>
+        <p class="eyebrow">Porto di Ischia</p>
+        <h1>Veicoli disponibili</h1>
+        <p class="lead compact">Scegli il mezzo giusto per muoverti tra porto, hotel, spiagge e strade panoramiche dell'isola.</p>
+    </div>
+    <form method="get" action="/veicoli/" class="filters">
+        <select name="tipo">
+            <option value="">Tutti i tipi</option>
+            <option value="auto" {% if tipo == "auto" %}selected{% endif %}>Auto</option>
+            <option value="scooter" {% if tipo == "scooter" %}selected{% endif %}>Scooter</option>
+            <option value="barca" {% if tipo == "barca" %}selected{% endif %}>Barca</option>
+            <option value="bici elettrica" {% if tipo == "bici elettrica" %}selected{% endif %}>Bici elettrica</option>
+        </select>
+        <select name="cambio">
+            <option value="">Qualsiasi cambio</option>
+            <option value="manuale" {% if cambio == "manuale" %}selected{% endif %}>Manuale</option>
+            <option value="automatica" {% if cambio == "automatica" %}selected{% endif %}>Automatica</option>
+        </select>
+        <select name="cabrio">
+            <option value="">Cabrio e non cabrio</option>
+            <option value="si" {% if cabrio == "si" %}selected{% endif %}>Cabrio</option>
+            <option value="no" {% if cabrio == "no" %}selected{% endif %}>Non cabrio</option>
+        </select>
+        <button>Filtra</button>
+    </form>
+</section>
+<section class="grid">
+    {% for vehicle in vehicles %}
+        <article class="card">
+            <div class="tag">{{ vehicle.tipo }}</div>
+            <h3>{{ vehicle.marca }} {{ vehicle.modello }}</h3>
+            <p>{{ vehicle.colore }} &middot; {{ vehicle|specs }}</p>
+            <strong>{{ vehicle.prezzo_giornaliero|euro }} / giorno</strong>
+            <a class="button" href="/prenota/?idVeicolo={{ vehicle.id_veicolo }}">Prenota</a>
+        </article>
+    {% empty %}
+        <article class="card"><p class="muted">Nessun veicolo disponibile con questi filtri.</p></article>
+    {% endfor %}
+</section>
+{% endblock %}

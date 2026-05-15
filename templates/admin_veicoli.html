@@ -1,0 +1,109 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<section class="section-head">
+    <h1>Gestione veicoli</h1>
+    <form method="get" action="/admin/veicoli/" class="filters">
+        <select name="tipo">
+            <option value="">Tutti i veicoli</option>
+            <option value="auto" {% if tipo_filter == "auto" %}selected{% endif %}>Auto</option>
+            <option value="scooter" {% if tipo_filter == "scooter" %}selected{% endif %}>Scooter</option>
+            <option value="barca" {% if tipo_filter == "barca" %}selected{% endif %}>Barca</option>
+            <option value="bici elettrica" {% if tipo_filter == "bici elettrica" %}selected{% endif %}>Bici elettrica</option>
+        </select>
+        <select name="stato">
+            <option value="">Tutti gli stati</option>
+            <option value="disponibile" {% if stato_filter == "disponibile" %}selected{% endif %}>Disponibile</option>
+            <option value="noleggiato" {% if stato_filter == "noleggiato" %}selected{% endif %}>Noleggiato</option>
+            <option value="manutenzione" {% if stato_filter == "manutenzione" %}selected{% endif %}>Manutenzione</option>
+            <option value="non_disponibile" {% if stato_filter == "non_disponibile" %}selected{% endif %}>Non disponibile</option>
+        </select>
+        <button>Filtra</button>
+    </form>
+</section>
+<section class="panel">
+    <h2>Aggiungi veicolo</h2>
+    <form method="post" action="/admin/veicolo/add/" class="form row">
+        {% csrf_token %}
+        <input name="targa" placeholder="Targa">
+        <input name="marca" placeholder="Marca" required>
+        <input name="modello" placeholder="Modello" required>
+        <input name="colore" placeholder="Colore" required>
+        <input name="prezzo_giornaliero" type="number" step="0.01" placeholder="Prezzo" required>
+        <select name="tipo"><option>auto</option><option>scooter</option><option>barca</option><option>bici elettrica</option></select>
+        <select name="cambio"><option value="">Cambio</option><option>manuale</option><option>automatica</option></select>
+        <select name="cabrio"><option value="0">Non cabrio</option><option value="1">Cabrio</option></select>
+        <select name="cilindrata"><option value="">Cilindrata scooter</option><option value="50">50 cc</option><option value="125">125 cc</option><option value="200">200 cc</option></select>
+        <select name="stato"><option>disponibile</option><option>noleggiato</option><option>manutenzione</option><option>non_disponibile</option></select>
+        <button>Aggiungi</button>
+    </form>
+</section>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>ID</th><th>Targa</th><th>Marca</th><th>Modello</th><th>Colore</th><th>Prezzo</th><th>Tipo</th><th>Cambio</th><th>Cabrio</th><th>Cilindrata</th><th>Stato</th><th></th><th></th></tr></thead>
+        <tbody>
+            {% for vehicle in vehicles %}
+                <tr>
+                    <td>
+                        {{ vehicle.id_veicolo }}
+                        <form id="update-{{ vehicle.id_veicolo }}" method="post" action="/admin/veicolo/update/">
+                            {% csrf_token %}
+                            <input type="hidden" name="idVeicolo" value="{{ vehicle.id_veicolo }}">
+                        </form>
+                    </td>
+                    <td><input form="update-{{ vehicle.id_veicolo }}" name="targa" value="{{ vehicle.targa|default:'' }}"></td>
+                    <td><input form="update-{{ vehicle.id_veicolo }}" name="marca" value="{{ vehicle.marca }}"></td>
+                    <td><input form="update-{{ vehicle.id_veicolo }}" name="modello" value="{{ vehicle.modello }}"></td>
+                    <td><input form="update-{{ vehicle.id_veicolo }}" name="colore" value="{{ vehicle.colore }}"></td>
+                    <td><input form="update-{{ vehicle.id_veicolo }}" name="prezzo_giornaliero" type="number" step="0.01" value="{{ vehicle.prezzo_giornaliero }}"></td>
+                    <td>
+                        <select form="update-{{ vehicle.id_veicolo }}" name="tipo">
+                            <option value="auto" {% if vehicle.tipo == "auto" %}selected{% endif %}>auto</option>
+                            <option value="scooter" {% if vehicle.tipo == "scooter" %}selected{% endif %}>scooter</option>
+                            <option value="barca" {% if vehicle.tipo == "barca" %}selected{% endif %}>barca</option>
+                            <option value="bici elettrica" {% if vehicle.tipo == "bici elettrica" %}selected{% endif %}>bici elettrica</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select form="update-{{ vehicle.id_veicolo }}" name="cambio">
+                            <option value="">-</option>
+                            <option value="manuale" {% if vehicle.cambio == "manuale" %}selected{% endif %}>manuale</option>
+                            <option value="automatica" {% if vehicle.cambio == "automatica" %}selected{% endif %}>automatica</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select form="update-{{ vehicle.id_veicolo }}" name="cabrio">
+                            <option value="0" {% if vehicle.cabrio == 0 %}selected{% endif %}>No</option>
+                            <option value="1" {% if vehicle.cabrio == 1 %}selected{% endif %}>Si</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select form="update-{{ vehicle.id_veicolo }}" name="cilindrata">
+                            <option value="">-</option>
+                            <option value="50" {% if vehicle.cilindrata == 50 %}selected{% endif %}>50</option>
+                            <option value="125" {% if vehicle.cilindrata == 125 %}selected{% endif %}>125</option>
+                            <option value="200" {% if vehicle.cilindrata == 200 %}selected{% endif %}>200</option>
+                        </select>
+                    </td>
+                    <td>
+                        <select form="update-{{ vehicle.id_veicolo }}" name="stato">
+                            <option value="disponibile" {% if vehicle.stato == "disponibile" %}selected{% endif %}>disponibile</option>
+                            <option value="noleggiato" {% if vehicle.stato == "noleggiato" %}selected{% endif %}>noleggiato</option>
+                            <option value="manutenzione" {% if vehicle.stato == "manutenzione" %}selected{% endif %}>manutenzione</option>
+                            <option value="non_disponibile" {% if vehicle.stato == "non_disponibile" %}selected{% endif %}>non_disponibile</option>
+                        </select>
+                    </td>
+                    <td><button form="update-{{ vehicle.id_veicolo }}">Salva</button></td>
+                    <td>
+                        <form method="post" action="/admin/veicolo/delete/">
+                            {% csrf_token %}
+                            <input type="hidden" name="idVeicolo" value="{{ vehicle.id_veicolo }}">
+                            <button class="danger">Rimuovi</button>
+                        </form>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

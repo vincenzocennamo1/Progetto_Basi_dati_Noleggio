@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<section class="panel narrow">
+    <h1>Registrazione cliente</h1>
+    <form method="post" action="/register/" class="form">
+        {% csrf_token %}
+        <label>Nome utente <input name="nome_utente" required></label>
+        <label>Nome <input name="nome" required></label>
+        <label>Cognome <input name="cognome" required></label>
+        <label>Email <input type="email" name="mail" required></label>
+        <label>Telefono <input name="telefono" required></label>
+        <label>Password <input type="password" name="password" required></label>
+        <button>Crea account</button>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% load static %}
+<!doctype html>
+<html lang="it">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="{% static 'style.css' %}?v=legacy-look-2">
+</head>
+<body>
+    <header class="topbar">
+        <a class="brand" href="/">Ischia Rent</a>
+        <nav>
+            {% for label, url in nav_links %}
+                <a href="{{ url }}">{{ label }}</a>
+            {% endfor %}
+        </nav>
+    </header>
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+    <footer class="site-footer">
+        <div>
+            <strong>Porto di Ischia</strong>
+            <span>Base noleggio veicoli e imbarcazioni nel Comune di Ischia, provincia di Napoli.</span>
+        </div>
+        <div>
+            <span>Ritiro in sede o consegna presso hotel e indirizzi dell'isola.</span>
+        </div>
+    </footer>
+</body>
+</html>

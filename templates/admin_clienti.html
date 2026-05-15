@@ -1,0 +1,26 @@
+{% extends "layout.html" %}
+{% load rental_extras %}
+
+{% block content %}
+<section class="section-head">
+    <h1>Clienti e storico</h1>
+</section>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Cliente</th><th>Email</th><th>Telefono</th><th>Prenotazioni</th><th>Valore storico</th></tr></thead>
+        <tbody>
+            {% for row in customers %}
+                <tr>
+                    <td>{{ row.nome }} {{ row.cognome }}</td>
+                    <td>{{ row.mail }}</td>
+                    <td>{{ row.telefono }}</td>
+                    <td>{{ row.prenotazioni }}</td>
+                    <td>{{ row.totale|euro }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="muted">Nessun cliente registrato.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
