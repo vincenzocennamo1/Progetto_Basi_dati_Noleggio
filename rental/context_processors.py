@@ -5,6 +5,7 @@ def navigation(request):
             ("Dashboard", "/admin/"),
             ("Veicoli", "/admin/veicoli/"),
             ("Prenotazioni", "/admin/prenotazioni/"),
+            ("Contratti", "/admin/contratti/"),
             ("Clienti", "/admin/clienti/"),
             ("Esci", "/logout/"),
         ]

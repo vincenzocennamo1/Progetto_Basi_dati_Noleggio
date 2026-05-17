@@ -11,7 +11,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_http_methods, require_POST
 from django.conf import settings
 
-from rental.models import AdminAccount, Cliente, Pagamento, Prenotazione, Ritiro, Utente, Veicolo
+from rental.models import AdminAccount, Cliente, Contratto, Pagamento, Prenotazione, Ritiro, Staff, Utente, Veicolo
 from rental.utils import adjusted_price, compute_cost, hash_password, money, scooter_engine, verify_password, vehicle_specs
 
 
@@ -409,6 +409,86 @@ def admin_payment_update(request: HttpRequest) -> HttpResponse:
     data = date.today().isoformat() if request.POST["stato"] == "pagato" else None
     Pagamento.objects.filter(pk=request.POST["idPagamento"]).update(stato=request.POST["stato"], data_pagamento=data)
     return redirect("/admin/prenotazioni/")
+
+
+def admin_contracts(request: HttpRequest) -> HttpResponse:
+    blocked = require_role(request, "admin")
+    if blocked:
+        return blocked
+    staff_id = request.GET.get("idStaff", "").strip()
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT p.idPrenotazione, p.idVeicolo, p.data_inizio, p.data_fine, p.costo_previsto,
+                   c.nome, c.cognome, v.marca, v.modello
+            FROM Prenotazione p
+            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
+            LEFT JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
+            WHERE p.stato = 'accettata'
+              AND co.idContratto IS NULL
+            ORDER BY p.idPrenotazione DESC
+            """
+        )
+        available_reservations = dictfetchall(cursor)
+        cursor.execute(
+            """
+            SELECT co.idContratto, co.data_stipula, co.costo_totale,
+                   p.idPrenotazione, p.data_inizio, p.data_fine,
+                   c.nome AS cliente_nome, c.cognome AS cliente_cognome,
+                   v.marca, v.modello,
+                   s.idStaff, s.nome AS staff_nome, s.ruolo
+            FROM Contratto co
+            JOIN ContrattoStaff cs ON cs.idContratto = co.idContratto
+            JOIN Staff s ON s.idStaff = cs.idStaff
+            JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
+            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Veicolo v ON v.idVeicolo = co.idVeicolo
+            WHERE (? = '' OR s.idStaff = ?)
+            ORDER BY co.data_stipula DESC, co.idContratto DESC
+            """,
+            [staff_id, staff_id],
+        )
+        contracts = dictfetchall(cursor)
+    return render(
+        request,
+        "admin_contratti.html",
+        {
+            "title": "Contratti",
+            "staff": Staff.objects.all().order_by("id_staff"),
+            "available_reservations": available_reservations,
+            "contracts": contracts,
+            "id_staff": staff_id,
+            "today": date.today().isoformat(),
+        },
+    )
+
+
+@require_POST
+def admin_contract_add(request: HttpRequest) -> HttpResponse:
+    blocked = require_role(request, "admin")
+    if blocked:
+        return blocked
+    reservation = get_object_or_404(Prenotazione, pk=request.POST["idPrenotazione"])
+    staff = get_object_or_404(Staff, pk=request.POST["idStaff"])
+    if reservation.stato != "accettata":
+        return HttpResponseBadRequest("Il contratto puo essere stipulato solo per prenotazioni accettate.")
+    try:
+        with transaction.atomic():
+            contract = Contratto.objects.create(
+                prenotazione=reservation,
+                veicolo=reservation.veicolo,
+                data_stipula=request.POST["data_stipula"],
+                costo_totale=float(request.POST["costo_totale"]),
+            )
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO ContrattoStaff (idContratto, idStaff) VALUES (?, ?)",
+                    [contract.id_contratto, staff.id_staff],
+                )
+    except (IntegrityError, ValueError) as exc:
+        return HttpResponseBadRequest(str(exc))
+    return redirect(f"/admin/contratti/?idStaff={staff.id_staff}")
 
 
 def admin_customers(request: HttpRequest) -> HttpResponse:

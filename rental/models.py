@@ -92,3 +92,26 @@ class AdminAccount(models.Model):
     class Meta:
         managed = False
         db_table = "Admin"
+
+
+class Staff(models.Model):
+    id_staff = models.AutoField(db_column="idStaff", primary_key=True)
+    nome = models.TextField()
+    ruolo = models.TextField()
+    stipendio = models.FloatField()
+
+    class Meta:
+        managed = False
+        db_table = "Staff"
+
+
+class Contratto(models.Model):
+    id_contratto = models.AutoField(db_column="idContratto", primary_key=True)
+    prenotazione = models.ForeignKey(Prenotazione, models.DO_NOTHING, db_column="idPrenotazione")
+    veicolo = models.ForeignKey(Veicolo, models.DO_NOTHING, db_column="idVeicolo")
+    data_stipula = models.TextField()
+    costo_totale = models.FloatField()
+
+    class Meta:
+        managed = False
+        db_table = "Contratto"

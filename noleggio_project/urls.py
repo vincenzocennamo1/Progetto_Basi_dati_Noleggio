@@ -44,6 +44,10 @@ urlpatterns = [
     path("admin/pagamenti/", views.admin_payments, name="admin_payments_slash"),
     path("admin/pagamento/update", views.admin_payment_update, name="admin_payment_update"),
     path("admin/pagamento/update/", views.admin_payment_update, name="admin_payment_update_slash"),
+    path("admin/contratti", views.admin_contracts, name="admin_contracts"),
+    path("admin/contratti/", views.admin_contracts, name="admin_contracts_slash"),
+    path("admin/contratto/add", views.admin_contract_add, name="admin_contract_add"),
+    path("admin/contratto/add/", views.admin_contract_add, name="admin_contract_add_slash"),
     path("admin/clienti", views.admin_customers, name="admin_customers"),
     path("admin/clienti/", views.admin_customers, name="admin_customers_slash"),
 ]

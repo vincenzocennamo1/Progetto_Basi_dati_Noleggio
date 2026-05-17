@@ -14,8 +14,8 @@
     <p><strong>Prenotazione</strong>: idPrenotazione, data_inizio, data_fine, stato, costo_previsto, cauzione_richiesta, note. Collega un cliente, un veicolo e una modalità di ritiro.</p>
     <p><strong>Ritiro</strong>: idRitiro, tipo, indirizzo. Descrive ritiro in sede o consegna presso indirizzo/hotel.</p>
     <p><strong>Pagamento</strong>: idPagamento, tipo, importo, stato, data_pagamento. È separato dalla prenotazione per rappresentare cauzione e saldo come eventi distinti.</p>
-    <p><strong>Contratto</strong>: idContratto, data_stipula, costo_totale. Formalizza una prenotazione accettata.</p>
-    <p><strong>Staff</strong>: idStaff, nome, ruolo. Uno o più membri dello staff possono gestire un contratto tramite la relazione ContrattoStaff.</p>
+    <p><strong>Contratto</strong>: idContratto, data_stipula, costo_totale. Formalizza una prenotazione accettata e viene compilato da un membro dello staff.</p>
+    <p><strong>Staff</strong>: idStaff, nome, ruolo, stipendio. Uno o più membri dello staff possono stipulare un contratto tramite la relazione ContrattoStaff, così dall'id dello staff si possono consultare i contratti associati.</p>
 
     <h2>Cardinalità</h2>
     <ul>
@@ -38,7 +38,7 @@ Prenotazione(idPrenotazione PK, idCliente FK, idVeicolo FK, idRitiro FK,
               data_inizio, data_fine, stato, costo_previsto, cauzione_richiesta, note)
 Pagamento(idPagamento PK, idPrenotazione FK, tipo, importo, stato, data_pagamento)
 Contratto(idContratto PK, idPrenotazione FK UNIQUE, idVeicolo FK, data_stipula, costo_totale)
-Staff(idStaff PK, nome, ruolo)
+Staff(idStaff PK, nome, ruolo, stipendio)
 ContrattoStaff(idContratto FK, idStaff FK, PK(idContratto, idStaff))</pre>
 
     <h2>Scelte progettuali</h2>
