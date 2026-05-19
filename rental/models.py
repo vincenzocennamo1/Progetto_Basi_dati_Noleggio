@@ -2,9 +2,16 @@ from django.db import models
 
 
 class Utente(models.Model):
+    TIPO_CHOICES = [
+        ('cliente', 'Cliente'),
+        ('admin', 'Amministratore'),
+        ('staff', 'Staff'),
+    ]
+    
     id_utente = models.AutoField(db_column="idUtente", primary_key=True)
     password = models.TextField()
     nome_utente = models.TextField(unique=True)
+    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
 
     class Meta:
         managed = False
@@ -18,7 +25,7 @@ class Cliente(models.Model):
     mail = models.TextField(unique=True)
     telefono = models.TextField()
     password_hash = models.TextField(blank=True, null=True)
-    utente = models.ForeignKey(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
+    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
 
     class Meta:
         managed = False
@@ -88,6 +95,7 @@ class AdminAccount(models.Model):
     nome = models.TextField()
     mail = models.TextField(unique=True)
     password_hash = models.TextField()
+    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
 
     class Meta:
         managed = False
@@ -99,6 +107,7 @@ class Staff(models.Model):
     nome = models.TextField()
     ruolo = models.TextField()
     stipendio = models.FloatField()
+    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
 
     class Meta:
         managed = False
