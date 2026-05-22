@@ -19,7 +19,8 @@
                     <td>
                         <form method="post" action="/admin/pagamento/update/">
                             {% csrf_token %}
-                            <input type="hidden" name="idPagamento" value="{{ row.id_pagamento }}">
+                            <input type="hidden" name="idPrenotazione" value="{{ row.idPrenotazione }}">
+                            <input type="hidden" name="tipo" value="{{ row.tipo }}">
                             <select name="stato">
                                 <option value="richiesto" {% if row.stato == "richiesto" %}selected{% endif %}>richiesto</option>
                                 <option value="pagato" {% if row.stato == "pagato" %}selected{% endif %}>pagato</option>

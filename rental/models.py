@@ -2,16 +2,9 @@ from django.db import models
 
 
 class Utente(models.Model):
-    TIPO_CHOICES = [
-        ('cliente', 'Cliente'),
-        ('admin', 'Amministratore'),
-        ('staff', 'Staff'),
-    ]
-    
     id_utente = models.AutoField(db_column="idUtente", primary_key=True)
     password = models.TextField()
     nome_utente = models.TextField(unique=True)
-    tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
 
     class Meta:
         managed = False
@@ -50,21 +43,12 @@ class Veicolo(models.Model):
         db_table = "Veicolo"
 
 
-class Ritiro(models.Model):
-    id_ritiro = models.AutoField(db_column="idRitiro", primary_key=True)
-    tipo = models.TextField()
-    indirizzo = models.TextField()
-
-    class Meta:
-        managed = False
-        db_table = "Ritiro"
-
-
 class Prenotazione(models.Model):
     id_prenotazione = models.AutoField(db_column="idPrenotazione", primary_key=True)
     cliente = models.ForeignKey(Cliente, models.DO_NOTHING, db_column="idCliente")
     veicolo = models.ForeignKey(Veicolo, models.DO_NOTHING, db_column="idVeicolo")
-    ritiro = models.ForeignKey(Ritiro, models.DO_NOTHING, db_column="idRitiro")
+    tipo_ritiro = models.TextField()
+    indirizzo_ritiro = models.TextField()
     data_inizio = models.TextField()
     data_fine = models.TextField()
     stato = models.TextField()
@@ -77,25 +61,11 @@ class Prenotazione(models.Model):
         db_table = "Prenotazione"
 
 
-class Pagamento(models.Model):
-    id_pagamento = models.AutoField(db_column="idPagamento", primary_key=True)
-    prenotazione = models.ForeignKey(Prenotazione, models.DO_NOTHING, db_column="idPrenotazione")
-    tipo = models.TextField()
-    importo = models.FloatField()
-    stato = models.TextField()
-    data_pagamento = models.TextField(blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = "Pagamento"
-
-
 class AdminAccount(models.Model):
     id_admin = models.AutoField(db_column="idAdmin", primary_key=True)
     nome = models.TextField()
     mail = models.TextField(unique=True)
     password_hash = models.TextField()
-    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
 
     class Meta:
         managed = False
@@ -107,7 +77,6 @@ class Staff(models.Model):
     nome = models.TextField()
     ruolo = models.TextField()
     stipendio = models.FloatField()
-    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
 
     class Meta:
         managed = False
@@ -118,8 +87,15 @@ class Contratto(models.Model):
     id_contratto = models.AutoField(db_column="idContratto", primary_key=True)
     prenotazione = models.ForeignKey(Prenotazione, models.DO_NOTHING, db_column="idPrenotazione")
     veicolo = models.ForeignKey(Veicolo, models.DO_NOTHING, db_column="idVeicolo")
-    data_stipula = models.TextField()
+    staff = models.ForeignKey(Staff, models.DO_NOTHING, db_column="idStaff", blank=True, null=True)
+    data_stipula = models.TextField(blank=True, null=True)
     costo_totale = models.FloatField()
+    cauzione_importo = models.FloatField()
+    cauzione_stato = models.TextField()
+    cauzione_data_pagamento = models.TextField(blank=True, null=True)
+    saldo_importo = models.FloatField()
+    saldo_stato = models.TextField()
+    saldo_data_pagamento = models.TextField(blank=True, null=True)
 
     class Meta:
         managed = False

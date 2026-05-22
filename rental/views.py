@@ -11,7 +11,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_http_methods, require_POST
 from django.conf import settings
 
-from rental.models import AdminAccount, Cliente, Contratto, Pagamento, Prenotazione, Ritiro, Staff, Utente, Veicolo
+from rental.models import AdminAccount, Cliente, Contratto, Prenotazione, Staff, Utente, Veicolo
 from rental.utils import adjusted_price, compute_cost, hash_password, money, scooter_engine, verify_password, vehicle_specs
 
 
@@ -151,11 +151,11 @@ def book(request: HttpRequest) -> HttpResponse:
             deposit = round(total * 0.35, 2) if days >= 3 else 0
             address = request.POST.get("indirizzo") or "Ritiro in sede"
             with transaction.atomic():
-                ritiro = Ritiro.objects.create(tipo=request.POST["tipo_ritiro"], indirizzo=address)
                 prenotazione = Prenotazione.objects.create(
                     cliente_id=request.session["id"],
                     veicolo=veicolo,
-                    ritiro=ritiro,
+                    tipo_ritiro=request.POST["tipo_ritiro"],
+                    indirizzo_ritiro=address,
                     data_inizio=request.POST["data_inizio"],
                     data_fine=request.POST["data_fine"],
                     stato="in_attesa",
@@ -163,8 +163,16 @@ def book(request: HttpRequest) -> HttpResponse:
                     cauzione_richiesta=deposit,
                     note=request.POST.get("note", ""),
                 )
-                Pagamento.objects.create(prenotazione=prenotazione, tipo="cauzione", importo=deposit, stato="richiesto")
-                Pagamento.objects.create(prenotazione=prenotazione, tipo="saldo", importo=max(total - deposit, 0), stato="richiesto")
+                Contratto.objects.create(
+                    prenotazione=prenotazione,
+                    veicolo=veicolo,
+                    data_stipula=None,
+                    costo_totale=total,
+                    cauzione_importo=deposit,
+                    cauzione_stato="richiesto",
+                    saldo_importo=max(total - deposit, 0),
+                    saldo_stato="richiesto",
+                )
             return redirect("/prenotazioni/")
         except (ValueError, IntegrityError) as exc:
             return HttpResponseBadRequest(str(exc))
@@ -180,13 +188,12 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
         cursor.execute(
             """
             SELECT p.*, v.marca, v.modello, v.tipo,
-                   SUM(CASE WHEN pay.tipo='cauzione' AND pay.stato='pagato' THEN pay.importo ELSE 0 END) cauzione_pagata,
-                   SUM(CASE WHEN pay.tipo='saldo' AND pay.stato='pagato' THEN pay.importo ELSE 0 END) saldo_pagato
+                   CASE WHEN co.cauzione_stato = 'pagato' THEN co.cauzione_importo ELSE 0 END cauzione_pagata,
+                   CASE WHEN co.saldo_stato = 'pagato' THEN co.saldo_importo ELSE 0 END saldo_pagato
             FROM Prenotazione p
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
-            LEFT JOIN Pagamento pay ON pay.idPrenotazione = p.idPrenotazione
+            LEFT JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
             WHERE p.idCliente = ?
-            GROUP BY p.idPrenotazione
             ORDER BY p.data_inizio DESC
             """,
             [request.session["id"]],
@@ -214,8 +221,9 @@ def cancel_reservation(request: HttpRequest) -> HttpResponse:
         )
         cursor.execute(
             """
-            UPDATE Pagamento
-            SET stato = CASE WHEN stato = 'pagato' THEN 'rimborsato' ELSE stato END
+            UPDATE Contratto
+            SET cauzione_stato = CASE WHEN cauzione_stato = 'pagato' THEN 'rimborsato' ELSE cauzione_stato END,
+                saldo_stato = CASE WHEN saldo_stato = 'pagato' THEN 'rimborsato' ELSE saldo_stato END
             WHERE idPrenotazione = ?
             """,
             [request.POST["idPrenotazione"]],
@@ -235,22 +243,35 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
                 (SELECT COUNT(*) FROM Prenotazione WHERE stato='in_attesa') attesa,
                 (SELECT COUNT(*) FROM Veicolo) veicoli,
                 (SELECT COUNT(*) FROM Cliente) clienti,
-                (SELECT COALESCE(SUM(importo), 0) FROM Pagamento WHERE stato='pagato') incassi
+                (SELECT COALESCE(SUM(
+                    CASE WHEN cauzione_stato='pagato' THEN cauzione_importo ELSE 0 END +
+                    CASE WHEN saldo_stato='pagato' THEN saldo_importo ELSE 0 END
+                ), 0) FROM Contratto) incassi
             """
         )
         stats = dictfetchall(cursor)[0]
         cursor.execute(
             """
-            SELECT pay.tipo, pay.importo, pay.data_pagamento,
+            SELECT 'cauzione' AS tipo, co.cauzione_importo AS importo, co.cauzione_data_pagamento AS data_pagamento,
                    p.idPrenotazione, p.stato,
                    c.nome, c.cognome,
                    v.marca, v.modello
-            FROM Pagamento pay
-            JOIN Prenotazione p ON p.idPrenotazione = pay.idPrenotazione
+            FROM Contratto co
+            JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
             JOIN Cliente c ON c.idCliente = p.idCliente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
-            WHERE pay.stato = 'pagato'
-            ORDER BY COALESCE(pay.data_pagamento, '' ) DESC, p.idPrenotazione DESC, pay.tipo
+            WHERE co.cauzione_stato = 'pagato'
+            UNION ALL
+            SELECT 'saldo' AS tipo, co.saldo_importo AS importo, co.saldo_data_pagamento AS data_pagamento,
+                   p.idPrenotazione, p.stato,
+                   c.nome, c.cognome,
+                   v.marca, v.modello
+            FROM Contratto co
+            JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
+            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
+            WHERE co.saldo_stato = 'pagato'
+            ORDER BY data_pagamento DESC, 4 DESC, tipo
             """
         )
         credited = dictfetchall(cursor)
@@ -258,11 +279,11 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
             """
             SELECT p.idPrenotazione, p.data_inizio, p.data_fine, p.stato,
                    p.costo_previsto, c.nome, c.cognome, c.mail, c.telefono,
-                   v.marca, v.modello, v.tipo, v.targa, v.cilindrata, r.tipo AS tipo_ritiro, r.indirizzo
+                   v.marca, v.modello, v.tipo, v.targa, v.cilindrata,
+                   p.tipo_ritiro, p.indirizzo_ritiro
             FROM Prenotazione p
             JOIN Cliente c ON c.idCliente = p.idCliente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
-            JOIN Ritiro r ON r.idRitiro = p.idRitiro
             WHERE p.data_fine = ?
               AND p.stato <> 'rifiutata'
             ORDER BY v.tipo, v.marca, v.modello
@@ -352,7 +373,7 @@ def admin_reservations(request: HttpRequest) -> HttpResponse:
     blocked = require_role(request, "admin")
     if blocked:
         return blocked
-    rows = Prenotazione.objects.select_related("cliente", "veicolo", "ritiro").order_by("-id_prenotazione")
+    rows = Prenotazione.objects.select_related("cliente", "veicolo").order_by("-id_prenotazione")
     return render(request, "admin_prenotazioni.html", {"title": "Gestione prenotazioni", "reservations": rows})
 
 
@@ -371,21 +392,22 @@ def admin_reservation_update(request: HttpRequest) -> HttpResponse:
             [request.POST["stato"], deposit, request.POST["idPrenotazione"]],
         )
         cursor.execute(
-            "UPDATE Pagamento SET importo = ? WHERE idPrenotazione = ? AND tipo = 'cauzione'",
-            [deposit, request.POST["idPrenotazione"]],
-        )
-        cursor.execute(
-            "UPDATE Pagamento SET importo = ? WHERE idPrenotazione = ? AND tipo = 'saldo'",
-            [balance, request.POST["idPrenotazione"]],
+            """
+            UPDATE Contratto
+            SET cauzione_importo = ?,
+                saldo_importo = ?,
+                costo_totale = ?
+            WHERE idPrenotazione = ?
+            """,
+            [deposit, balance, float(reservation.costo_previsto), request.POST["idPrenotazione"]],
         )
         if request.POST["stato"] == "accettata":
             cursor.execute(
                 """
-                UPDATE Pagamento
-                SET stato = 'pagato',
-                    data_pagamento = COALESCE(data_pagamento, ?)
+                UPDATE Contratto
+                SET saldo_stato = 'pagato',
+                    saldo_data_pagamento = COALESCE(saldo_data_pagamento, ?)
                 WHERE idPrenotazione = ?
-                  AND tipo = 'saldo'
                 """,
                 [payment_date, request.POST["idPrenotazione"]],
             )
@@ -397,7 +419,23 @@ def admin_payments(request: HttpRequest) -> HttpResponse:
     if blocked:
         return blocked
     pren_id = request.GET.get("idPrenotazione", "")
-    rows = Pagamento.objects.filter(prenotazione_id=pren_id).order_by("tipo")
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT idPrenotazione, 'cauzione' AS tipo, cauzione_importo AS importo,
+                   cauzione_stato AS stato, cauzione_data_pagamento AS data_pagamento
+            FROM Contratto
+            WHERE idPrenotazione = ?
+            UNION ALL
+            SELECT idPrenotazione, 'saldo' AS tipo, saldo_importo AS importo,
+                   saldo_stato AS stato, saldo_data_pagamento AS data_pagamento
+            FROM Contratto
+            WHERE idPrenotazione = ?
+            ORDER BY tipo
+            """,
+            [pren_id, pren_id],
+        )
+        rows = dictfetchall(cursor)
     return render(request, "admin_pagamenti.html", {"title": "Pagamenti", "payments": rows, "id": pren_id})
 
 
@@ -407,7 +445,16 @@ def admin_payment_update(request: HttpRequest) -> HttpResponse:
     if blocked:
         return blocked
     data = date.today().isoformat() if request.POST["stato"] == "pagato" else None
-    Pagamento.objects.filter(pk=request.POST["idPagamento"]).update(stato=request.POST["stato"], data_pagamento=data)
+    tipo = request.POST["tipo"]
+    if tipo not in {"cauzione", "saldo"}:
+        return HttpResponseBadRequest("Tipo pagamento non valido.")
+    stato_column = f"{tipo}_stato"
+    data_column = f"{tipo}_data_pagamento"
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"UPDATE Contratto SET {stato_column} = ?, {data_column} = ? WHERE idPrenotazione = ?",
+            [request.POST["stato"], data, request.POST["idPrenotazione"]],
+        )
     return redirect("/admin/prenotazioni/")
 
 
@@ -424,9 +471,9 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
             FROM Prenotazione p
             JOIN Cliente c ON c.idCliente = p.idCliente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
-            LEFT JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
+            JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
             WHERE p.stato = 'accettata'
-              AND co.idContratto IS NULL
+              AND co.data_stipula IS NULL
             ORDER BY p.idPrenotazione DESC
             """
         )
@@ -439,12 +486,13 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
                    v.marca, v.modello,
                    s.idStaff, s.nome AS staff_nome, s.ruolo
             FROM Contratto co
-            JOIN ContrattoStaff cs ON cs.idContratto = co.idContratto
-            JOIN Staff s ON s.idStaff = cs.idStaff
+            JOIN Staff s ON s.idStaff = co.idStaff
             JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
             JOIN Cliente c ON c.idCliente = p.idCliente
             JOIN Veicolo v ON v.idVeicolo = co.idVeicolo
-            WHERE (? = '' OR s.idStaff = ?)
+            WHERE co.data_stipula IS NOT NULL
+              AND co.idStaff IS NOT NULL
+              AND (? = '' OR s.idStaff = ?)
             ORDER BY co.data_stipula DESC, co.idContratto DESC
             """,
             [staff_id, staff_id],
@@ -475,17 +523,12 @@ def admin_contract_add(request: HttpRequest) -> HttpResponse:
         return HttpResponseBadRequest("Il contratto puo essere stipulato solo per prenotazioni accettate.")
     try:
         with transaction.atomic():
-            contract = Contratto.objects.create(
-                prenotazione=reservation,
-                veicolo=reservation.veicolo,
-                data_stipula=request.POST["data_stipula"],
-                costo_totale=float(request.POST["costo_totale"]),
-            )
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "INSERT INTO ContrattoStaff (idContratto, idStaff) VALUES (?, ?)",
-                    [contract.id_contratto, staff.id_staff],
-                )
+            contract = get_object_or_404(Contratto, prenotazione=reservation)
+            contract.data_stipula = request.POST["data_stipula"]
+            contract.costo_totale = float(request.POST["costo_totale"])
+            contract.veicolo = reservation.veicolo
+            contract.staff = staff
+            contract.save(update_fields=["data_stipula", "costo_totale", "veicolo", "staff"])
     except (IntegrityError, ValueError) as exc:
         return HttpResponseBadRequest(str(exc))
     return redirect(f"/admin/contratti/?idStaff={staff.id_staff}")
