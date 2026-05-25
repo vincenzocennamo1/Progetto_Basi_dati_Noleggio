@@ -4,40 +4,39 @@
 <section class="doc">
     <h1>Progetto del sistema informativo</h1>
     <h2>Descrizione completa</h2>
-    <p>Il sistema gestisce un servizio di noleggio veicoli composto da area cliente e area amministratore. Il cliente si registra, accede, consulta i veicoli disponibili, invia una prenotazione con date e modalità di ritiro o consegna, visualizza lo stato e i pagamenti richiesti. L'amministratore gestisce veicoli, clienti, prenotazioni, cauzioni e saldo finale.</p>
+    <p>Il sistema gestisce un servizio di noleggio veicoli composto da area cliente e area amministratore. Il cliente si registra, accede, consulta i veicoli disponibili, invia una prenotazione con date e modalita di ritiro o consegna, visualizza lo stato e i pagamenti richiesti. L'amministratore gestisce veicoli, utenti cliente, prenotazioni, cauzioni, saldo finale e contratti assegnati allo staff.</p>
 
     <h2>Schema concettuale E-R</h2>
-    <p><strong>Utente</strong>: idUtente, nome_utente, password. Rappresenta le credenziali usate per registrazione e login.</p>
-    <p><strong>Cliente</strong>: idCliente, idUtente, nome, cognome, mail, telefono. Contiene l'anagrafica del cliente e si collega all'utente autenticato.</p>
-    <p><strong>Admin</strong>: idAdmin, nome, mail, password. Rappresenta l'utente amministrativo che opera sul sistema.</p>
-    <p><strong>Veicolo</strong>: idVeicolo, marca, modello, colore, prezzo_giornaliero, stato, tipo. Ogni veicolo può comparire in molte prenotazioni nel tempo, ma non in periodi sovrapposti.</p>
-    <p><strong>Prenotazione</strong>: idPrenotazione, data_inizio, data_fine, tipo_ritiro, indirizzo_ritiro, stato, costo_previsto, cauzione_richiesta, note. Collega un cliente, un veicolo e conserva la modalità di ritiro o consegna.</p>
-    <p><strong>Contratto</strong>: idContratto, idStaff, data_stipula, costo_totale, cauzione_importo, cauzione_stato, cauzione_data_pagamento, saldo_importo, saldo_stato, saldo_data_pagamento. Formalizza una prenotazione accettata, conserva cauzione e saldo, ed è gestito da un membro dello staff.</p>
-    <p><strong>Staff</strong>: idStaff, nome, ruolo, stipendio. Ogni membro dello staff può gestire più contratti.</p>
+    <p><strong>Utente</strong>: idUtente, nome, cognome, mail, telefono, password_hash, tipo. Rappresenta l'identita comune di cliente, admin e staff. La specializzazione totale e disgiunta e risolta con l'attributo tipo.</p>
+    <p><strong>Staff</strong>: idStaff, idUtente, ruolo, stipendio. Contiene solo gli attributi lavorativi specifici dello staff.</p>
+    <p><strong>Veicolo</strong>: idVeicolo, marca, modello, colore, prezzo_giornaliero, stato, tipo, cambio, cabrio, targa, cilindrata. Ogni veicolo puo comparire in molte prenotazioni nel tempo, ma non in periodi sovrapposti.</p>
+    <p><strong>Prenotazione</strong>: idPrenotazione, idUtente, idVeicolo, data_inizio, data_fine, tipo_ritiro, indirizzo_ritiro, stato, costo_previsto, cauzione_richiesta, note. Collega un utente cliente a un veicolo.</p>
+    <p><strong>Contratto</strong>: idContratto, idPrenotazione, idVeicolo, idStaff, data_stipula, costo_totale, cauzione_importo, cauzione_stato, cauzione_data_pagamento, saldo_importo, saldo_stato, saldo_data_pagamento. Formalizza una prenotazione accettata, conserva cauzione e saldo, ed e gestito da un membro dello staff.</p>
 
-    <h2>Cardinalità</h2>
+    <h2>Cardinalita</h2>
     <ul>
-        <li>Utente 1:1 Cliente: ogni account cliente ha una sola anagrafica associata.</li>
-        <li>Cliente 1:N Prenotazione: un cliente può effettuare molte prenotazioni.</li>
-        <li>Veicolo 1:N Prenotazione: ogni prenotazione riguarda un solo veicolo.</li>
-        <li>Prenotazione 1:1 Contratto: ogni prenotazione ha un record contratto, completato con data e staff quando viene stipulato.</li>
-        <li>Staff 1:N Contratto: uno staff può gestire molti contratti, ogni contratto è gestito da un solo membro dello staff.</li>
+        <li>Utente 1:0..1 Staff / Staff 1:1 Utente: un utente di tipo staff ha una sola scheda staff; ogni scheda staff appartiene a un solo utente.</li>
+        <li>Utente 1:N Prenotazione / Prenotazione N:1 Utente: un utente cliente puo effettuare molte prenotazioni; ogni prenotazione appartiene a un solo utente cliente.</li>
+        <li>Veicolo 1:N Prenotazione / Prenotazione N:1 Veicolo: un veicolo puo essere prenotato molte volte; ogni prenotazione riguarda un solo veicolo.</li>
+        <li>Prenotazione 1:1 Contratto / Contratto 1:1 Prenotazione: ogni prenotazione ha un solo record contratto e ogni contratto formalizza una sola prenotazione.</li>
+        <li>Veicolo 1:N Contratto / Contratto N:1 Veicolo: un veicolo puo comparire in molti contratti; ogni contratto riguarda un solo veicolo.</li>
+        <li>Staff 1:N Contratto / Contratto N:1 Staff: uno staff puo gestire molti contratti; ogni contratto stipulato e gestito da un solo membro dello staff.</li>
     </ul>
 
     <h2>Schema logico relazionale</h2>
-    <pre>Utente(idUtente PK, password, nome_utente UNIQUE)
-Cliente(idCliente PK, idUtente FK, nome, cognome, mail UNIQUE, telefono)
-Admin(idAdmin PK, nome, mail UNIQUE, password_hash)
-Veicolo(idVeicolo PK, marca, modello, colore, prezzo_giornaliero, stato, tipo)
-Prenotazione(idPrenotazione PK, idCliente FK, idVeicolo FK,
+    <pre>Utente(idUtente PK, nome, cognome, mail UNIQUE, telefono, password_hash, tipo)
+Staff(idStaff PK, idUtente FK UNIQUE, ruolo, stipendio)
+Veicolo(idVeicolo PK, marca, modello, colore, prezzo_giornaliero, stato, tipo,
+        cambio, cabrio, targa UNIQUE, cilindrata)
+Prenotazione(idPrenotazione PK, idUtente FK, idVeicolo FK,
               data_inizio, data_fine, tipo_ritiro, indirizzo_ritiro, stato,
               costo_previsto, cauzione_richiesta, note)
-Contratto(idContratto PK, idPrenotazione FK UNIQUE, idVeicolo FK, idStaff FK, data_stipula, costo_totale,
-          cauzione_importo, cauzione_stato, cauzione_data_pagamento,
-          saldo_importo, saldo_stato, saldo_data_pagamento)
-Staff(idStaff PK, nome, ruolo, stipendio)</pre>
+Contratto(idContratto PK, idPrenotazione FK UNIQUE, idVeicolo FK, idStaff FK,
+          data_stipula, costo_totale, cauzione_importo, cauzione_stato,
+          cauzione_data_pagamento, saldo_importo, saldo_stato,
+          saldo_data_pagamento)</pre>
 
     <h2>Scelte progettuali</h2>
-    <p>La specializzazione di Veicolo in auto, scooter, barca e bici elettrica è gestita con l'attributo tipo, soluzione più semplice per un progetto didattico e sufficiente per filtrare i mezzi. Cauzione e saldo sono attributi del contratto per ridurre il numero di entità mantenendo importi, stati e date distinti. Lo storico resta completo perché le prenotazioni non vengono cancellate: cambiano stato nel tempo. I trigger SQLite impediscono periodi sovrapposti per lo stesso veicolo e mantengono coerenti contratti e prenotazioni.</p>
+    <p>Le entita Cliente e Admin sono state accorpate in Utente per eliminare duplicazione di credenziali e dati anagrafici. Il ruolo applicativo e gestito da tipo, con valori cliente, admin e staff. Staff resta separata perche possiede attributi non comuni, cioe ruolo e stipendio. Anche la specializzazione di Veicolo in auto, scooter, barca e bici elettrica e gestita con l'attributo tipo, soluzione semplice e coerente con il livello del progetto.</p>
 </section>
 {% endblock %}

@@ -24,7 +24,7 @@
         <label>Staff
             <select name="idStaff" required>
                 {% for person in staff %}
-                    <option value="{{ person.id_staff }}">#{{ person.id_staff }} - {{ person.nome }} ({{ person.ruolo }})</option>
+                    <option value="{{ person.id_staff }}">#{{ person.id_staff }} - {{ person.utente.nome }} ({{ person.ruolo }})</option>
                 {% endfor %}
             </select>
         </label>

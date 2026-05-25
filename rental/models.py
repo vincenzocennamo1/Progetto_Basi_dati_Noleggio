@@ -3,26 +3,16 @@ from django.db import models
 
 class Utente(models.Model):
     id_utente = models.AutoField(db_column="idUtente", primary_key=True)
-    password = models.TextField()
-    nome_utente = models.TextField(unique=True)
+    nome = models.TextField()
+    cognome = models.TextField(blank=True, null=True)
+    mail = models.TextField(unique=True, blank=True, null=True)
+    telefono = models.TextField(blank=True, null=True)
+    password_hash = models.TextField(blank=True, null=True)
+    tipo = models.TextField()
 
     class Meta:
         managed = False
         db_table = "Utente"
-
-
-class Cliente(models.Model):
-    id_cliente = models.AutoField(db_column="idCliente", primary_key=True)
-    nome = models.TextField()
-    cognome = models.TextField()
-    mail = models.TextField(unique=True)
-    telefono = models.TextField()
-    password_hash = models.TextField(blank=True, null=True)
-    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente", blank=True, null=True)
-
-    class Meta:
-        managed = False
-        db_table = "Cliente"
 
 
 class Veicolo(models.Model):
@@ -45,7 +35,7 @@ class Veicolo(models.Model):
 
 class Prenotazione(models.Model):
     id_prenotazione = models.AutoField(db_column="idPrenotazione", primary_key=True)
-    cliente = models.ForeignKey(Cliente, models.DO_NOTHING, db_column="idCliente")
+    utente = models.ForeignKey(Utente, models.DO_NOTHING, db_column="idUtente")
     veicolo = models.ForeignKey(Veicolo, models.DO_NOTHING, db_column="idVeicolo")
     tipo_ritiro = models.TextField()
     indirizzo_ritiro = models.TextField()
@@ -61,20 +51,9 @@ class Prenotazione(models.Model):
         db_table = "Prenotazione"
 
 
-class AdminAccount(models.Model):
-    id_admin = models.AutoField(db_column="idAdmin", primary_key=True)
-    nome = models.TextField()
-    mail = models.TextField(unique=True)
-    password_hash = models.TextField()
-
-    class Meta:
-        managed = False
-        db_table = "Admin"
-
-
 class Staff(models.Model):
     id_staff = models.AutoField(db_column="idStaff", primary_key=True)
-    nome = models.TextField()
+    utente = models.OneToOneField(Utente, models.DO_NOTHING, db_column="idUtente")
     ruolo = models.TextField()
     stipendio = models.FloatField()
 

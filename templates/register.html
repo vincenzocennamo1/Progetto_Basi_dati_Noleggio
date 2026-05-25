@@ -5,7 +5,6 @@
     <h1>Registrazione cliente</h1>
     <form method="post" action="/register/" class="form">
         {% csrf_token %}
-        <label>Nome utente <input name="nome_utente" required></label>
         <label>Nome <input name="nome" required></label>
         <label>Cognome <input name="cognome" required></label>
         <label>Email <input type="email" name="mail" required></label>

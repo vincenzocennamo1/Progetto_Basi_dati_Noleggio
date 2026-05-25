@@ -11,7 +11,7 @@ from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_http_methods, require_POST
 from django.conf import settings
 
-from rental.models import AdminAccount, Cliente, Contratto, Prenotazione, Staff, Utente, Veicolo
+from rental.models import Contratto, Prenotazione, Staff, Utente, Veicolo
 from rental.utils import adjusted_price, compute_cost, hash_password, money, scooter_engine, verify_password, vehicle_specs
 
 
@@ -64,19 +64,12 @@ def login_view(request: HttpRequest) -> HttpResponse:
     if request.method == "POST":
         identity = request.POST.get("identificativo", "").strip()
         password = request.POST.get("password", "")
-        admin = AdminAccount.objects.filter(mail=identity).first()
-        if admin and verify_password(password, admin.password_hash):
-            request.session["role"] = "admin"
-            request.session["id"] = admin.id_admin
-            return redirect("/admin/")
-        user = (
-            Cliente.objects.select_related("utente")
-            .filter(utente__nome_utente=identity)
-            .first()
-        )
-        if user and user.utente and verify_password(password, user.utente.password):
-            request.session["role"] = "cliente"
-            request.session["id"] = user.id_cliente
+        user = Utente.objects.filter(mail=identity, tipo__in=["admin", "cliente"]).first()
+        if user and user.password_hash and verify_password(password, user.password_hash):
+            request.session["role"] = user.tipo
+            request.session["id"] = user.id_utente
+            if user.tipo == "admin":
+                return redirect("/admin/")
             return redirect("/veicoli/")
         return redirect("/login/?errore=1")
     return render(request, "login.html", {"title": "Accesso al sistema", "action": "/login/"})
@@ -97,18 +90,15 @@ def register(request: HttpRequest) -> HttpResponse:
         try:
             with transaction.atomic():
                 utente = Utente.objects.create(
-                    nome_utente=request.POST["nome_utente"],
-                    password=hash_password(request.POST["password"]),
-                )
-                cliente = Cliente.objects.create(
                     nome=request.POST["nome"],
                     cognome=request.POST["cognome"],
                     mail=request.POST["mail"],
                     telefono=request.POST["telefono"],
-                    utente=utente,
+                    password_hash=hash_password(request.POST["password"]),
+                    tipo="cliente",
                 )
             request.session["role"] = "cliente"
-            request.session["id"] = cliente.id_cliente
+            request.session["id"] = utente.id_utente
             return redirect("/veicoli/")
         except IntegrityError:
             return redirect("/register/?errore=duplicato")
@@ -152,7 +142,7 @@ def book(request: HttpRequest) -> HttpResponse:
             address = request.POST.get("indirizzo") or "Ritiro in sede"
             with transaction.atomic():
                 prenotazione = Prenotazione.objects.create(
-                    cliente_id=request.session["id"],
+                    utente_id=request.session["id"],
                     veicolo=veicolo,
                     tipo_ritiro=request.POST["tipo_ritiro"],
                     indirizzo_ritiro=address,
@@ -193,7 +183,7 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
             FROM Prenotazione p
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
             LEFT JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
-            WHERE p.idCliente = ?
+            WHERE p.idUtente = ?
             ORDER BY p.data_inizio DESC
             """,
             [request.session["id"]],
@@ -214,7 +204,7 @@ def cancel_reservation(request: HttpRequest) -> HttpResponse:
             SET stato = 'rifiutata',
                 note = COALESCE(note || char(10), '') || 'Prenotazione annullata dal cliente'
             WHERE idPrenotazione = ?
-              AND idCliente = ?
+              AND idUtente = ?
               AND stato IN ('in_attesa', 'accettata')
             """,
             [request.POST["idPrenotazione"], request.session["id"]],
@@ -242,7 +232,7 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
             SELECT
                 (SELECT COUNT(*) FROM Prenotazione WHERE stato='in_attesa') attesa,
                 (SELECT COUNT(*) FROM Veicolo) veicoli,
-                (SELECT COUNT(*) FROM Cliente) clienti,
+                (SELECT COUNT(*) FROM Utente WHERE tipo = 'cliente') clienti,
                 (SELECT COALESCE(SUM(
                     CASE WHEN cauzione_stato='pagato' THEN cauzione_importo ELSE 0 END +
                     CASE WHEN saldo_stato='pagato' THEN saldo_importo ELSE 0 END
@@ -258,7 +248,7 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
                    v.marca, v.modello
             FROM Contratto co
             JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
-            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Utente c ON c.idUtente = p.idUtente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
             WHERE co.cauzione_stato = 'pagato'
             UNION ALL
@@ -268,7 +258,7 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
                    v.marca, v.modello
             FROM Contratto co
             JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
-            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Utente c ON c.idUtente = p.idUtente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
             WHERE co.saldo_stato = 'pagato'
             ORDER BY data_pagamento DESC, 4 DESC, tipo
@@ -282,7 +272,7 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
                    v.marca, v.modello, v.tipo, v.targa, v.cilindrata,
                    p.tipo_ritiro, p.indirizzo_ritiro
             FROM Prenotazione p
-            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Utente c ON c.idUtente = p.idUtente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
             WHERE p.data_fine = ?
               AND p.stato <> 'rifiutata'
@@ -373,7 +363,7 @@ def admin_reservations(request: HttpRequest) -> HttpResponse:
     blocked = require_role(request, "admin")
     if blocked:
         return blocked
-    rows = Prenotazione.objects.select_related("cliente", "veicolo").order_by("-id_prenotazione")
+    rows = Prenotazione.objects.select_related("utente", "veicolo").order_by("-id_prenotazione")
     return render(request, "admin_prenotazioni.html", {"title": "Gestione prenotazioni", "reservations": rows})
 
 
@@ -469,7 +459,7 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
             SELECT p.idPrenotazione, p.idVeicolo, p.data_inizio, p.data_fine, p.costo_previsto,
                    c.nome, c.cognome, v.marca, v.modello
             FROM Prenotazione p
-            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Utente c ON c.idUtente = p.idUtente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
             JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
             WHERE p.stato = 'accettata'
@@ -484,11 +474,12 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
                    p.idPrenotazione, p.data_inizio, p.data_fine,
                    c.nome AS cliente_nome, c.cognome AS cliente_cognome,
                    v.marca, v.modello,
-                   s.idStaff, s.nome AS staff_nome, s.ruolo
+                   s.idStaff, su.nome AS staff_nome, s.ruolo
             FROM Contratto co
             JOIN Staff s ON s.idStaff = co.idStaff
+            JOIN Utente su ON su.idUtente = s.idUtente
             JOIN Prenotazione p ON p.idPrenotazione = co.idPrenotazione
-            JOIN Cliente c ON c.idCliente = p.idCliente
+            JOIN Utente c ON c.idUtente = p.idUtente
             JOIN Veicolo v ON v.idVeicolo = co.idVeicolo
             WHERE co.data_stipula IS NOT NULL
               AND co.idStaff IS NOT NULL
@@ -503,7 +494,7 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
         "admin_contratti.html",
         {
             "title": "Contratti",
-            "staff": Staff.objects.all().order_by("id_staff"),
+            "staff": Staff.objects.select_related("utente").all().order_by("id_staff"),
             "available_reservations": available_reservations,
             "contracts": contracts,
             "id_staff": staff_id,
@@ -542,9 +533,10 @@ def admin_customers(request: HttpRequest) -> HttpResponse:
         cursor.execute(
             """
             SELECT c.*, COUNT(p.idPrenotazione) prenotazioni, COALESCE(SUM(p.costo_previsto), 0) totale
-            FROM Cliente c
-            LEFT JOIN Prenotazione p ON p.idCliente = c.idCliente
-            GROUP BY c.idCliente
+            FROM Utente c
+            LEFT JOIN Prenotazione p ON p.idUtente = c.idUtente
+            WHERE c.tipo = 'cliente'
+            GROUP BY c.idUtente
             ORDER BY c.cognome, c.nome
             """
         )

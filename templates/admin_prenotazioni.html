@@ -12,7 +12,7 @@
             {% for row in reservations %}
                 <tr>
                     <td>#{{ row.id_prenotazione }}</td>
-                    <td>{{ row.cliente.nome }} {{ row.cliente.cognome }}<br><small>{{ row.cliente.mail }}</small></td>
+                    <td>{{ row.utente.nome }} {{ row.utente.cognome }}<br><small>{{ row.utente.mail }}</small></td>
                     <td>{{ row.veicolo.marca }} {{ row.veicolo.modello }}</td>
                     <td>{{ row.data_inizio }} - {{ row.data_fine }}</td>
                     <td>{{ row.tipo_ritiro }}<br><small>{{ row.indirizzo_ritiro }}</small></td>
