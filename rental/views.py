@@ -12,7 +12,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from django.conf import settings
 
 from rental.models import Contratto, Prenotazione, Staff, Utente, Veicolo
-from rental.utils import adjusted_price, compute_cost, hash_password, money, scooter_engine, verify_password, vehicle_specs
+from rental.utils import adjusted_price, boat_length, compute_cost, ebike_battery, hash_password, money, scooter_engine, verify_password, vehicle_specs
 
 
 def static_style(request: HttpRequest) -> HttpResponse:
@@ -320,6 +320,8 @@ def admin_vehicle_add(request: HttpRequest) -> HttpResponse:
         tipo=request.POST["tipo"],
         targa=request.POST.get("targa") or None,
         cilindrata=scooter_engine(request.POST),
+        batteria_watt=ebike_battery(request.POST),
+        lunghezza=boat_length(request.POST),
         cambio=request.POST.get("cambio") or None,
         cabrio=int(request.POST.get("cabrio", "0")),
     )
@@ -343,6 +345,8 @@ def admin_vehicle_update(request: HttpRequest) -> HttpResponse:
     current.cambio = request.POST.get("cambio") or None
     current.cabrio = int(request.POST.get("cabrio", "0"))
     current.cilindrata = scooter_engine(request.POST)
+    current.batteria_watt = ebike_battery(request.POST)
+    current.lunghezza = boat_length(request.POST)
     current.save()
     return redirect("/admin/veicoli/")
 

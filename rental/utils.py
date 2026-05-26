@@ -59,6 +59,12 @@ def vehicle_specs(row: Any, show_plate: bool = True) -> str:
         cilindrata = attr(row, "cilindrata")
         if tipo == "scooter" and cilindrata:
             return f"scooter {cilindrata} cc{targa}"
+        batteria_watt = attr(row, "batteria_watt")
+        if tipo == "bici elettrica" and batteria_watt:
+            return f"bici elettrica {batteria_watt}W{targa}"
+        lunghezza = attr(row, "lunghezza")
+        if tipo == "barca" and lunghezza:
+            return f"barca {float(lunghezza):g} m{targa}"
         return f"{tipo}{targa}"
     cambio = attr(row, "cambio") or "manuale"
     cabrio = "cabrio" if attr(row, "cabrio") else "non cabrio"
@@ -84,3 +90,15 @@ def scooter_engine(form: dict) -> int | None:
     if form.get("tipo") != "scooter":
         return None
     return int(form.get("cilindrata") or "125")
+
+
+def ebike_battery(form: dict) -> int | None:
+    if form.get("tipo") != "bici elettrica":
+        return None
+    return int(form.get("batteria_watt") or "250")
+
+
+def boat_length(form: dict) -> float | None:
+    if form.get("tipo") != "barca" or not form.get("lunghezza"):
+        return None
+    return float(form["lunghezza"])

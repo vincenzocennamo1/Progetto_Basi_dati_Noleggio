@@ -34,13 +34,15 @@
         <select name="cambio"><option value="">Cambio</option><option>manuale</option><option>automatica</option></select>
         <select name="cabrio"><option value="0">Non cabrio</option><option value="1">Cabrio</option></select>
         <select name="cilindrata"><option value="">Cilindrata scooter</option><option value="50">50 cc</option><option value="125">125 cc</option><option value="200">200 cc</option></select>
+        <select name="batteria_watt"><option value="">Batteria bici</option><option value="250">250W</option><option value="500">500W</option></select>
+        <input name="lunghezza" type="number" step="0.1" min="0" placeholder="Lunghezza barca (m)">
         <select name="stato"><option>disponibile</option><option>noleggiato</option><option>manutenzione</option><option>non_disponibile</option></select>
         <button>Aggiungi</button>
     </form>
 </section>
 <div class="table-wrap">
     <table>
-        <thead><tr><th>ID</th><th>Targa</th><th>Marca</th><th>Modello</th><th>Colore</th><th>Prezzo</th><th>Tipo</th><th>Cambio</th><th>Cabrio</th><th>Cilindrata</th><th>Stato</th><th></th><th></th></tr></thead>
+        <thead><tr><th>ID</th><th>Targa</th><th>Marca</th><th>Modello</th><th>Colore</th><th>Prezzo</th><th>Tipo</th><th>Cambio</th><th>Cabrio</th><th>Cilindrata</th><th>Batteria</th><th>Lunghezza</th><th>Stato</th><th></th><th></th></tr></thead>
         <tbody>
             {% for vehicle in vehicles %}
                 <tr>
@@ -85,6 +87,14 @@
                             <option value="200" {% if vehicle.cilindrata == 200 %}selected{% endif %}>200</option>
                         </select>
                     </td>
+                    <td>
+                        <select form="update-{{ vehicle.id_veicolo }}" name="batteria_watt">
+                            <option value="">-</option>
+                            <option value="250" {% if vehicle.batteria_watt == 250 %}selected{% endif %}>250W</option>
+                            <option value="500" {% if vehicle.batteria_watt == 500 %}selected{% endif %}>500W</option>
+                        </select>
+                    </td>
+                    <td><input form="update-{{ vehicle.id_veicolo }}" name="lunghezza" type="number" step="0.1" min="0" value="{{ vehicle.lunghezza|default:'' }}"></td>
                     <td>
                         <select form="update-{{ vehicle.id_veicolo }}" name="stato">
                             <option value="disponibile" {% if vehicle.stato == "disponibile" %}selected{% endif %}>disponibile</option>

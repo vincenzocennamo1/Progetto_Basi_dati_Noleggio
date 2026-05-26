@@ -9,7 +9,7 @@
     <h2>Schema concettuale E-R</h2>
     <p><strong>Utente</strong>: idUtente, nome, cognome, mail, telefono, password_hash, tipo. Rappresenta l'identita comune di cliente, admin e staff. La specializzazione totale e disgiunta e risolta con l'attributo tipo.</p>
     <p><strong>Staff</strong>: idStaff, idUtente, ruolo, stipendio. Contiene solo gli attributi lavorativi specifici dello staff.</p>
-    <p><strong>Veicolo</strong>: idVeicolo, marca, modello, colore, prezzo_giornaliero, stato, tipo, cambio, cabrio, targa, cilindrata. Ogni veicolo puo comparire in molte prenotazioni nel tempo, ma non in periodi sovrapposti.</p>
+    <p><strong>Veicolo</strong>: idVeicolo, marca, modello, colore, prezzo_giornaliero, stato, tipo, cambio, cabrio, targa, cilindrata, batteria_watt, lunghezza. Ogni veicolo puo comparire in molte prenotazioni nel tempo, ma non in periodi sovrapposti.</p>
     <p><strong>Prenotazione</strong>: idPrenotazione, idUtente, idVeicolo, data_inizio, data_fine, tipo_ritiro, indirizzo_ritiro, stato, costo_previsto, cauzione_richiesta, note. Collega un utente cliente a un veicolo.</p>
     <p><strong>Contratto</strong>: idContratto, idPrenotazione, idVeicolo, idStaff, data_stipula, costo_totale, cauzione_importo, cauzione_stato, cauzione_data_pagamento, saldo_importo, saldo_stato, saldo_data_pagamento. Formalizza una prenotazione accettata, conserva cauzione e saldo, ed e gestito da un membro dello staff.</p>
 
@@ -27,7 +27,7 @@
     <pre>Utente(idUtente PK, nome, cognome, mail UNIQUE, telefono, password_hash, tipo)
 Staff(idStaff PK, idUtente FK UNIQUE, ruolo, stipendio)
 Veicolo(idVeicolo PK, marca, modello, colore, prezzo_giornaliero, stato, tipo,
-        cambio, cabrio, targa UNIQUE, cilindrata)
+        cambio, cabrio, targa UNIQUE, cilindrata, batteria_watt, lunghezza)
 Prenotazione(idPrenotazione PK, idUtente FK, idVeicolo FK,
               data_inizio, data_fine, tipo_ritiro, indirizzo_ritiro, stato,
               costo_previsto, cauzione_richiesta, note)

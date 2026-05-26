@@ -27,6 +27,8 @@ class Veicolo(models.Model):
     cabrio = models.IntegerField()
     targa = models.TextField(blank=True, null=True)
     cilindrata = models.IntegerField(blank=True, null=True)
+    batteria_watt = models.IntegerField(blank=True, null=True)
+    lunghezza = models.FloatField(blank=True, null=True)
 
     class Meta:
         managed = False
