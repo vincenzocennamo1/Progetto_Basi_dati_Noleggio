@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import date
+from urllib.parse import urlencode
 
 from django.db import IntegrityError, connection, transaction
 from django.http import FileResponse, HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseNotFound
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.html import escape
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
 from django.views.decorators.http import require_http_methods, require_POST
 from django.conf import settings
@@ -40,9 +42,11 @@ def csrf_input(request: HttpRequest) -> str:
     return f'<input type="hidden" name="csrfmiddlewaretoken" value="{get_token(request)}">'
 
 
-def require_role(request: HttpRequest, role: str):
-    if request.session.get("role") != role:
-        return redirect("/login/")
+def require_role(request: HttpRequest, role: str | set[str]):
+    allowed_roles = {role} if isinstance(role, str) else role
+    if request.session.get("role") not in allowed_roles:
+        query = urlencode({"next": request.get_full_path()})
+        return redirect(f"/login/?{query}")
     return None
 
 
@@ -52,6 +56,8 @@ def home(request: HttpRequest) -> HttpResponse:
         return redirect("/admin/")
     if role == "cliente":
         return redirect("/veicoli/")
+    if role == "staff":
+        return redirect("/admin/contratti/")
     return redirect("/login/")
 
 
@@ -61,18 +67,28 @@ def docs(request: HttpRequest) -> HttpResponse:
 
 @require_http_methods(["GET", "POST"])
 def login_view(request: HttpRequest) -> HttpResponse:
+    next_url = request.POST.get("next") or request.GET.get("next", "")
     if request.method == "POST":
         identity = request.POST.get("identificativo", "").strip()
         password = request.POST.get("password", "")
-        user = Utente.objects.filter(mail=identity, tipo__in=["admin", "cliente"]).first()
+        user = Utente.objects.filter(mail=identity, tipo__in=["admin", "cliente", "staff"]).first()
         if user and user.password_hash and verify_password(password, user.password_hash):
             request.session["role"] = user.tipo
             request.session["id"] = user.id_utente
+            if next_url and url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}):
+                if user.tipo == "cliente" and not next_url.startswith("/admin/"):
+                    return redirect(next_url)
+                if user.tipo == "admin" and next_url.startswith("/admin/"):
+                    return redirect(next_url)
+                if user.tipo == "staff" and next_url.startswith("/admin/contratti/"):
+                    return redirect(next_url)
             if user.tipo == "admin":
                 return redirect("/admin/")
+            if user.tipo == "staff":
+                return redirect("/admin/contratti/")
             return redirect("/veicoli/")
         return redirect("/login/?errore=1")
-    return render(request, "login.html", {"title": "Accesso al sistema", "action": "/login/"})
+    return render(request, "login.html", {"title": "Accesso al sistema", "action": "/login/", "next": next_url})
 
 
 def admin_login_redirect(request: HttpRequest) -> HttpResponse:
@@ -183,7 +199,7 @@ def my_reservations(request: HttpRequest) -> HttpResponse:
             FROM Prenotazione p
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
             LEFT JOIN Contratto co ON co.idPrenotazione = p.idPrenotazione
-            WHERE p.idUtente = ?
+            WHERE p.idUtente = %s
             ORDER BY p.data_inizio DESC
             """,
             [request.session["id"]],
@@ -203,8 +219,8 @@ def cancel_reservation(request: HttpRequest) -> HttpResponse:
             UPDATE Prenotazione
             SET stato = 'rifiutata',
                 note = COALESCE(note || char(10), '') || 'Prenotazione annullata dal cliente'
-            WHERE idPrenotazione = ?
-              AND idUtente = ?
+            WHERE idPrenotazione = %s
+              AND idUtente = %s
               AND stato IN ('in_attesa', 'accettata')
             """,
             [request.POST["idPrenotazione"], request.session["id"]],
@@ -214,7 +230,7 @@ def cancel_reservation(request: HttpRequest) -> HttpResponse:
             UPDATE Contratto
             SET cauzione_stato = CASE WHEN cauzione_stato = 'pagato' THEN 'rimborsato' ELSE cauzione_stato END,
                 saldo_stato = CASE WHEN saldo_stato = 'pagato' THEN 'rimborsato' ELSE saldo_stato END
-            WHERE idPrenotazione = ?
+            WHERE idPrenotazione = %s
             """,
             [request.POST["idPrenotazione"]],
         )
@@ -274,7 +290,7 @@ def admin_dashboard(request: HttpRequest) -> HttpResponse:
             FROM Prenotazione p
             JOIN Utente c ON c.idUtente = p.idUtente
             JOIN Veicolo v ON v.idVeicolo = p.idVeicolo
-            WHERE p.data_fine = ?
+            WHERE p.data_fine = %s
               AND p.stato <> 'rifiutata'
             ORDER BY v.tipo, v.marca, v.modello
             """,
@@ -382,16 +398,16 @@ def admin_reservation_update(request: HttpRequest) -> HttpResponse:
     balance = max(float(reservation.costo_previsto) - deposit, 0)
     with connection.cursor() as cursor:
         cursor.execute(
-            "UPDATE Prenotazione SET stato = ?, cauzione_richiesta = ? WHERE idPrenotazione = ?",
+            "UPDATE Prenotazione SET stato = %s, cauzione_richiesta = %s WHERE idPrenotazione = %s",
             [request.POST["stato"], deposit, request.POST["idPrenotazione"]],
         )
         cursor.execute(
             """
             UPDATE Contratto
-            SET cauzione_importo = ?,
-                saldo_importo = ?,
-                costo_totale = ?
-            WHERE idPrenotazione = ?
+            SET cauzione_importo = %s,
+                saldo_importo = %s,
+                costo_totale = %s
+            WHERE idPrenotazione = %s
             """,
             [deposit, balance, float(reservation.costo_previsto), request.POST["idPrenotazione"]],
         )
@@ -400,8 +416,8 @@ def admin_reservation_update(request: HttpRequest) -> HttpResponse:
                 """
                 UPDATE Contratto
                 SET saldo_stato = 'pagato',
-                    saldo_data_pagamento = COALESCE(saldo_data_pagamento, ?)
-                WHERE idPrenotazione = ?
+                    saldo_data_pagamento = COALESCE(saldo_data_pagamento, %s)
+                WHERE idPrenotazione = %s
                 """,
                 [payment_date, request.POST["idPrenotazione"]],
             )
@@ -419,12 +435,12 @@ def admin_payments(request: HttpRequest) -> HttpResponse:
             SELECT idPrenotazione, 'cauzione' AS tipo, cauzione_importo AS importo,
                    cauzione_stato AS stato, cauzione_data_pagamento AS data_pagamento
             FROM Contratto
-            WHERE idPrenotazione = ?
+            WHERE idPrenotazione = %s
             UNION ALL
             SELECT idPrenotazione, 'saldo' AS tipo, saldo_importo AS importo,
                    saldo_stato AS stato, saldo_data_pagamento AS data_pagamento
             FROM Contratto
-            WHERE idPrenotazione = ?
+            WHERE idPrenotazione = %s
             ORDER BY tipo
             """,
             [pren_id, pren_id],
@@ -446,14 +462,14 @@ def admin_payment_update(request: HttpRequest) -> HttpResponse:
     data_column = f"{tipo}_data_pagamento"
     with connection.cursor() as cursor:
         cursor.execute(
-            f"UPDATE Contratto SET {stato_column} = ?, {data_column} = ? WHERE idPrenotazione = ?",
+            f"UPDATE Contratto SET {stato_column} = %s, {data_column} = %s WHERE idPrenotazione = %s",
             [request.POST["stato"], data, request.POST["idPrenotazione"]],
         )
     return redirect("/admin/prenotazioni/")
 
 
 def admin_contracts(request: HttpRequest) -> HttpResponse:
-    blocked = require_role(request, "admin")
+    blocked = require_role(request, {"admin", "staff"})
     if blocked:
         return blocked
     staff_id = request.GET.get("idStaff", "").strip()
@@ -487,7 +503,7 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
             JOIN Veicolo v ON v.idVeicolo = co.idVeicolo
             WHERE co.data_stipula IS NOT NULL
               AND co.idStaff IS NOT NULL
-              AND (? = '' OR s.idStaff = ?)
+              AND (%s = '' OR s.idStaff = %s)
             ORDER BY co.data_stipula DESC, co.idContratto DESC
             """,
             [staff_id, staff_id],
@@ -509,7 +525,7 @@ def admin_contracts(request: HttpRequest) -> HttpResponse:
 
 @require_POST
 def admin_contract_add(request: HttpRequest) -> HttpResponse:
-    blocked = require_role(request, "admin")
+    blocked = require_role(request, {"admin", "staff"})
     if blocked:
         return blocked
     reservation = get_object_or_404(Prenotazione, pk=request.POST["idPrenotazione"])

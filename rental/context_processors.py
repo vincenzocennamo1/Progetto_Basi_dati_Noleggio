@@ -1,20 +1,28 @@
+from django.urls import reverse
+
+
 def navigation(request):
     role = request.session.get("role")
     if role == "admin":
         links = [
-            ("Dashboard", "/admin/"),
-            ("Veicoli", "/admin/veicoli/"),
-            ("Prenotazioni", "/admin/prenotazioni/"),
-            ("Contratti", "/admin/contratti/"),
-            ("Clienti", "/admin/clienti/"),
-            ("Esci", "/logout/"),
+            ("Dashboard", reverse("admin_dashboard")),
+            ("Veicoli", reverse("admin_vehicles")),
+            ("Prenotazioni", reverse("admin_reservations")),
+            ("Contratti", reverse("admin_contracts")),
+            ("Clienti", reverse("admin_customers")),
+            ("Esci", reverse("logout")),
         ]
     elif role == "cliente":
         links = [
-            ("Veicoli", "/veicoli/"),
-            ("Le mie prenotazioni", "/prenotazioni/"),
-            ("Esci", "/logout/"),
+            ("Veicoli", reverse("vehicles")),
+            ("Le mie prenotazioni", reverse("my_reservations")),
+            ("Esci", reverse("logout")),
+        ]
+    elif role == "staff":
+        links = [
+            ("Contratti", reverse("admin_contracts")),
+            ("Esci", reverse("logout")),
         ]
     else:
-        links = [("Veicoli", "/veicoli/"), ("Login", "/login/"), ("Registrati", "/register/")]
+        links = [("Veicoli", reverse("vehicles")), ("Login", reverse("login")), ("Registrati", reverse("register"))]
     return {"nav_links": links}
