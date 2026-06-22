@@ -189,6 +189,19 @@ button:hover {
     color: var(--accent-strong);
 }
 
+.alert {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin: 0 0 18px;
+    padding: 12px 14px;
+}
+
+.alert.error {
+    background: #fff1ef;
+    border-color: rgba(180, 35, 24, 0.28);
+    color: var(--danger);
+}
+
 button.danger {
     background: var(--coral);
 }

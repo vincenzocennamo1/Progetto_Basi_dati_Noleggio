@@ -1,10 +1,14 @@
 {% extends "layout.html" %}
 {% load rental_extras %}
+{% load l10n %}
 
 {% block content %}
 <section class="section-head">
     <h1>Gestione prenotazioni</h1>
 </section>
+{% if errore %}
+    <div class="alert error">{{ errore }}</div>
+{% endif %}
 <div class="table-wrap">
     <table>
         <thead><tr><th>ID</th><th>Cliente</th><th>Veicolo</th><th>Date</th><th>Ritiro</th><th>Costo</th><th>Stato</th><th>Azioni</th></tr></thead>
@@ -29,7 +33,7 @@
                                 <option value="in_corso" {% if row.stato == "in_corso" %}selected{% endif %}>in_corso</option>
                                 <option value="completata" {% if row.stato == "completata" %}selected{% endif %}>completata</option>
                             </select>
-                            <input name="cauzione_richiesta" type="number" step="0.01" value="{{ row.cauzione_richiesta }}">
+                            <input name="cauzione_richiesta" type="number" step="0.01" value="{{ row.cauzione_richiesta|unlocalize }}">
                             <button>Salva</button>
                         </form>
                         <a href="/admin/pagamenti/?idPrenotazione={{ row.id_prenotazione }}">Pagamenti</a>

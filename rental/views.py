@@ -42,6 +42,10 @@ def csrf_input(request: HttpRequest) -> str:
     return f'<input type="hidden" name="csrfmiddlewaretoken" value="{get_token(request)}">'
 
 
+def parse_money_input(value: str) -> float:
+    return float(value.strip().replace(",", "."))
+
+
 def require_role(request: HttpRequest, role: str | set[str]):
     allowed_roles = {role} if isinstance(role, str) else role
     if request.session.get("role") not in allowed_roles:
@@ -384,7 +388,15 @@ def admin_reservations(request: HttpRequest) -> HttpResponse:
     if blocked:
         return blocked
     rows = Prenotazione.objects.select_related("utente", "veicolo").order_by("-id_prenotazione")
-    return render(request, "admin_prenotazioni.html", {"title": "Gestione prenotazioni", "reservations": rows})
+    return render(
+        request,
+        "admin_prenotazioni.html",
+        {
+            "title": "Gestione prenotazioni",
+            "reservations": rows,
+            "errore": request.GET.get("errore", ""),
+        },
+    )
 
 
 @require_POST
@@ -392,35 +404,41 @@ def admin_reservation_update(request: HttpRequest) -> HttpResponse:
     blocked = require_role(request, "admin")
     if blocked:
         return blocked
-    deposit = float(request.POST["cauzione_richiesta"])
+    try:
+        deposit = parse_money_input(request.POST.get("cauzione_richiesta", "0"))
+    except ValueError:
+        return redirect(f"/admin/prenotazioni/?{urlencode({'errore': 'Cauzione non valida.'})}")
     payment_date = date.today().isoformat() if request.POST["stato"] == "accettata" else None
     reservation = get_object_or_404(Prenotazione, pk=request.POST["idPrenotazione"])
     balance = max(float(reservation.costo_previsto) - deposit, 0)
-    with connection.cursor() as cursor:
-        cursor.execute(
-            "UPDATE Prenotazione SET stato = %s, cauzione_richiesta = %s WHERE idPrenotazione = %s",
-            [request.POST["stato"], deposit, request.POST["idPrenotazione"]],
-        )
-        cursor.execute(
-            """
-            UPDATE Contratto
-            SET cauzione_importo = %s,
-                saldo_importo = %s,
-                costo_totale = %s
-            WHERE idPrenotazione = %s
-            """,
-            [deposit, balance, float(reservation.costo_previsto), request.POST["idPrenotazione"]],
-        )
-        if request.POST["stato"] == "accettata":
+    try:
+        with transaction.atomic(), connection.cursor() as cursor:
+            cursor.execute(
+                "UPDATE Prenotazione SET stato = %s, cauzione_richiesta = %s WHERE idPrenotazione = %s",
+                [request.POST["stato"], deposit, request.POST["idPrenotazione"]],
+            )
             cursor.execute(
                 """
                 UPDATE Contratto
-                SET saldo_stato = 'pagato',
-                    saldo_data_pagamento = COALESCE(saldo_data_pagamento, %s)
+                SET cauzione_importo = %s,
+                    saldo_importo = %s,
+                    costo_totale = %s
                 WHERE idPrenotazione = %s
                 """,
-                [payment_date, request.POST["idPrenotazione"]],
+                [deposit, balance, float(reservation.costo_previsto), request.POST["idPrenotazione"]],
             )
+            if request.POST["stato"] == "accettata":
+                cursor.execute(
+                    """
+                    UPDATE Contratto
+                    SET saldo_stato = 'pagato',
+                        saldo_data_pagamento = COALESCE(saldo_data_pagamento, %s)
+                    WHERE idPrenotazione = %s
+                    """,
+                    [payment_date, request.POST["idPrenotazione"]],
+                )
+    except IntegrityError as exc:
+        return redirect(f"/admin/prenotazioni/?{urlencode({'errore': str(exc)})}")
     return redirect("/admin/prenotazioni/")
 
 
