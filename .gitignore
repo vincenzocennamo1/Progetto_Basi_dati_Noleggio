@@ -1,3 +1,6 @@
 __pycache__/
 *.py[cod]
 noleggio_before_*_migration.db
+*.docx
+*.pptx
+noleggio_dump.sql
